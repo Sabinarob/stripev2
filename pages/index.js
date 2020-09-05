@@ -1,65 +1,61 @@
 import Head from 'next/head'
 import styles from '../styles/Home.module.css'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import axios from "axios"
 
-export default function Home() {
-  return (
-    <div className={styles.container}>
-      <Head>
-        <title>Create Next App</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
 
-      <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
+//https://www.youtube.com/watch?v=WTUYem2IxLA
 
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
+const CheckoutForm = ( { success, carderror }) => {
+  const stripe = useStripe()
+  const elements = useElements()
 
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h3>Documentation &rarr;</h3>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    const {error, paymentMethod} = await stripe.createPaymentMethod({
+      type:'card',
+      card: elements.getElement(CardElement)
 
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h3>Learn &rarr;</h3>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
+    })
+    if (!error) {
+      const { id } = paymentMethod;
+      try {
+        const {data} = await axios.post("/api/charge", {id,amount: 1099})
+        console.log(data)
+        success()
+      } catch (error) {
+        console.log (error)
+        carderror() 
+      }
+    }
+  }
 
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className={styles.card}
-          >
-            <h3>Examples &rarr;</h3>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/import?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h3>Deploy &rarr;</h3>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
-      </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <img src="/vercel.svg" alt="Vercel Logo" className={styles.logo} />
-        </a>
-      </footer>
-    </div>
-  )
+  return  <form 
+            onSubmit={handleSubmit} 
+            style = {{maxWidth: "400px",  margin: "0 auto"}}>
+    <h2>Price: 10.99 USD</h2>
+    <img 
+      src = "https://images.ricardocuisine.com/services/recipes/500x675_7700.jpg"
+      style = {{maxWidth: "100px"}}/>
+    <CardElement/>
+    <button type="submit" disables= {!stripe}>Pay</button>
+  </form>
 }
+const stripePromise = loadStripe("pk_test_51HNa2xEEYAfc1YSvoy824VFbCsvPpDZZsVKcNzWXNIYaiNq6NyTfs0KP67mk8RGCscKLQWiaCE47ElXNnCiJL9zp0000DqEkMw")
+
+const Index = () => {
+  const [status, setStatus] = React.useState("ready")
+
+  if (status === "success") {
+    return <div>Congrats on your empanadas</div>
+  }
+  if (status === "carderror") {
+    return <div>There was a problem with your card</div>
+  }
+  return <Elements stripe={stripePromise}> 
+    <CheckoutForm 
+      success={() => {setStatus("success")}}
+      carderror = {() => {setStatus("carderror")}}/> </Elements>
+}
+ export default Index
